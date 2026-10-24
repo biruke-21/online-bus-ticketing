@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PASSENGER
+  ADMIN
+}
+
+enum BusStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum SeatStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         UserRole @default(PASSENGER)
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Bus {
+  id          String    @id @default(cuid())
+  name        String
+  plateNumber String    @unique
+  seatCount   Int
+  status      BusStatus @default(ACTIVE)
+
+  schedules Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Route {
+  id          String @id @default(cuid())
+  origin      String
+  destination String
+  distanceKm  Float?
+  durationMin Int?
+
+  schedules Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([origin, destination])
+}
+
+model Schedule {
+  id            String   @id @default(cuid())
+  busId         String
+  routeId       String
+  departureTime DateTime
+  arrivalTime   DateTime
+  price         Decimal  @db.Decimal(10, 2)
+
+  bus      Bus       @relation(fields: [busId], references: [id])
+  route    Route     @relation(fields: [routeId], references: [id])
+  seats    Seat[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departureTime])
+  @@index([routeId])
+  @@index([busId])
+}
+
+model Seat {
+  id         String     @id @default(cuid())
+  scheduleId String
+  seatNumber String
+  status     SeatStatus @default(AVAILABLE)
+
+  schedule     Schedule      @relation(fields: [scheduleId], references: [id])
+  bookingSeats BookingSeat[]
+
+  @@unique([scheduleId, seatNumber])
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  userId           String
+  scheduleId       String
+  bookingReference String        @unique
+  status           BookingStatus @default(PENDING)
+  totalAmount      Decimal       @db.Decimal(10, 2)
+
+  user      User          @relation(fields: [userId], references: [id])
+  schedule  Schedule      @relation(fields: [scheduleId], references: [id])
+  seats     BookingSeat[]
+  passenger Passenger?
+  payment   Payment?
+  ticket    Ticket?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([scheduleId])
+}
+
+model BookingSeat {
+  id        String @id @default(cuid())
+  bookingId String
+  seatId    String
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  seat    Seat    @relation(fields: [seatId], references: [id])
+
+  @@unique([bookingId, seatId])
+  @@unique([seatId])
+}
+
+model Passenger {
+  id             String  @id @default(cuid())
+  bookingId      String  @unique
+  fullName       String
+  phone          String
+  email          String?
+  identification String?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  bookingId     String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  method        String?
+  transactionId String?       @unique
+  status        PaymentStatus @default(PENDING)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ticket {
+  id           String   @id @default(cuid())
+  bookingId    String   @unique
+  ticketNumber String   @unique
+  qrCode       String
+
+  // Boarding tracking
+  boarded      Boolean  @default(false)
+  boardedAt    DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+
