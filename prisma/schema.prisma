@@ -44,6 +44,7 @@ model User {
   phone        String?
   passwordHash String
   role         UserRole @default(PASSENGER)
+  isActive     Boolean  @default(true)
 
   bookings Booking[]
 
